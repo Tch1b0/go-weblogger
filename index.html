@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>🌐 Web Logger</title>
+        <style>
+            :root {
+                --bg-color: black;
+                --prim-color: rgb(10, 240, 10);
+
+                background-color: var(--bg-color);
+                color: var(--prim-color);
+                font-family: monospace;
+                text-shadow: 10pt;
+                font-size: larger;
+            }
+
+            .content-container {
+                max-height: 90vh;
+                overflow-y: scroll;
+            }
+
+            #content {
+                display: flex;
+                flex-direction: column-reverse;
+            }
+
+            .msg {
+                margin: 0px;
+            }
+
+            .control-msg {
+                color: rgb(100, 100, 240);
+            }
+
+            #freezeBtn {
+                background-color: var(--bg-color);
+                border-color: var(--prim-color);
+                border-radius: 0px;
+                color: var(--prim-color);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="content-container">
+            <div class="controls">
+                <button onclick="toggleFreeze()" id="freezeBtn">Freeze</button>
+                <p id="hiddenMessageCount"></p>
+            </div>
+            <div id="content"></div>
+        </div>
+        <script>
+            let messageQueue = [];
+            const contentEl = document.getElementById("content");
+
+            const hostName = window.location.host;
+            const ws = new WebSocket(`ws://${hostName}/io/stream`);
+
+            let frozen = false;
+            let messagesSinceFrozen = 0;
+            const FreezeBtn = document.getElementById("freezeBtn");
+            const hiddenMessageCountEl =
+                document.getElementById("hiddenMessageCount");
+
+            ws.onmessage = (ev) => {
+                console.log(ev);
+                messageQueue.push([new Date(), ev.data]);
+                if (frozen) {
+                    messagesSinceFrozen++;
+                    hiddenMessageCountEl.innerText = `Queued messages: ${messagesSinceFrozen}`;
+                    return;
+                }
+
+                for (const line of messageQueue) {
+                    const p = document.createElement("p");
+                    p.className = "msg";
+                    const [date, content] = line;
+
+                    // check if its a control message (e.g. freeze status)
+                    if (date === -1) {
+                        p.classList.add("control-msg");
+                        p.innerText = content;
+                    } else {
+                        p.innerText = `[${date.toLocaleTimeString()}] ${content}`;
+                    }
+
+                    contentEl.appendChild(p);
+                }
+                messageQueue = [];
+            };
+
+            function toggleFreeze() {
+                frozen = !frozen;
+                if (frozen) {
+                    FreezeBtn.innerText = "Unfreeze";
+                    lines.push([-1, "--- UNFREEZE ---"]);
+                    messagesSinceFrozen = 0;
+                } else {
+                    FreezeBtn.innerText = "Freeze";
+                    hiddenMessageCountEl.innerText = "";
+                }
+            }
+        </script>
+    </body>
+</html>
