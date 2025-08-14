@@ -118,5 +118,5 @@ func (wi *WebInterface) Serve() {
 
 	log.Printf("Starting web server on http://%s:%d\n", wi.Host, wi.Port)
 
-	http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", wi.Port), nil)
+	http.ListenAndServe(fmt.Sprintf("%s:%d", wi.Host, wi.Port), nil)
 }
