@@ -7,7 +7,7 @@ import (
 
 func main() {
 	wi := NewWebInterface("localhost", 3000)
-	go wi.Start()
+	go wi.Serve()
 
 	time.Sleep(3 * time.Second)
 

@@ -7,10 +7,8 @@ Expose your terminal output to the web
 ```go
 
 func main() {
-
-
     wi := NewWebInterface("localhost", 3000)
-    go wi.Start()
+    go wi.Serve()
 
     fmt.Fprintln(wi.Writer, "This is a message to the webterminal")
     fmt.Fprintln(wi.Writer, "This is a second message")

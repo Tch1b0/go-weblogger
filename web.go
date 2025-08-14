@@ -83,7 +83,7 @@ func NewWebInterface(host string, port int) WebInterface {
 	}
 }
 
-func (wi *WebInterface) Start() {
+func (wi *WebInterface) Serve() {
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, rootHTML)
 	}))
