@@ -19,9 +19,9 @@ func main() {
     go wi.Serve()
 
     for {
-        fmt.Fprintln(wi.Writer, "This is a message to the webterminal")
-        fmt.Fprintln(wi.Writer, "This is a second message")
-        fmt.Fprintln(wi.Writer, "You can see, the messages are \n displayed sequentially top-down")
+        fmt.Fprint(wi.Writer, "This is a message to the webterminal")
+        fmt.Fprint(wi.Writer, "and another message")
+        fmt.Fprint(wi.Writer, "You can see, the messages are \n displayed sequentially top-down")
 
         time.Sleep(3 * time.Second)
     }
