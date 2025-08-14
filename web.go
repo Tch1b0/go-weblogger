@@ -1,4 +1,4 @@
-package main
+package weblogger
 
 import (
 	_ "embed"
@@ -90,7 +90,6 @@ func (wi *WebInterface) Serve() {
 
 	http.Handle("/io/stream", websocket.Handler(func(ws *websocket.Conn) {
 		recv := make(chan []byte, 100)
-		fmt.Println("Adding to Receivers: ", recv)
 		msgChansMutex.Lock()
 		*wi.msgChans = append((*wi.msgChans), recv)
 		msgChansMutex.Unlock()
