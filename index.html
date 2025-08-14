@@ -70,20 +70,7 @@
             const hiddenMessageCountEl =
                 document.getElementById("hiddenMessageCount");
 
-            ws.onmessage = (ev) => {
-                const lines = ev.data.split("\n").reverse();
-                messageQueue.push([new Date(), lines[lines.length - 1]]);
-                lines.pop();
-                for (const line of lines) {
-                    messageQueue.push([0, line]);
-                }
-
-                if (frozen) {
-                    messagesSinceFrozen++;
-                    hiddenMessageCountEl.innerText = `Queued messages: ${messagesSinceFrozen}`;
-                    return;
-                }
-
+            function renderMessages() {
                 for (const line of messageQueue) {
                     const p = document.createElement("p");
                     p.className = "msg";
@@ -103,6 +90,23 @@
                     p.scrollIntoView();
                 }
                 messageQueue = [];
+            }
+
+            ws.onmessage = (ev) => {
+                const lines = ev.data.split("\n").reverse();
+                messageQueue.push([new Date(), lines[lines.length - 1]]);
+                lines.pop();
+                for (const line of lines) {
+                    messageQueue.push([0, line]);
+                }
+
+                if (frozen) {
+                    messagesSinceFrozen++;
+                    hiddenMessageCountEl.innerText = `Queued messages: ${messagesSinceFrozen}`;
+                    return;
+                }
+
+                renderMessages();
             };
 
             function toggleFreeze() {
@@ -114,6 +118,7 @@
                 } else {
                     FreezeBtn.innerText = "Freeze";
                     hiddenMessageCountEl.innerText = "";
+                    renderMessages();
                 }
             }
         </script>
