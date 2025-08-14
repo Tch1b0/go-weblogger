@@ -15,7 +15,7 @@ var rootHTML string
 
 var msgChansMutex *sync.Mutex = new(sync.Mutex)
 
-func RemoveFromArr[T comparable](arr *[]T, value T) {
+func removeFromArr[T comparable](arr *[]T, value T) {
 	passedObj := false
 	for i := 0; i < len(*arr)-1; i++ {
 		if (*arr)[i] == value {
@@ -57,7 +57,7 @@ func (w WebInterfaceWriter) Write(p []byte) (n int, err error) {
 	}
 
 	for _, c := range queuedRemoval {
-		RemoveFromArr(w.msgChans, c)
+		removeFromArr(w.msgChans, c)
 	}
 	msgChansMutex.Unlock()
 
@@ -102,13 +102,13 @@ func (wi *WebInterface) Serve() {
 				if err := websocket.Message.Send(ws, string(message)); err != nil {
 					// connection was most likely closed
 					msgChansMutex.Lock()
-					RemoveFromArr(wi.msgChans, recv)
+					removeFromArr(wi.msgChans, recv)
 					msgChansMutex.Unlock()
 					return
 				}
 			} else {
 				msgChansMutex.Lock()
-				RemoveFromArr(wi.msgChans, recv)
+				removeFromArr(wi.msgChans, recv)
 				msgChansMutex.Unlock()
 				return
 			}
