@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 
@@ -84,11 +83,13 @@ func NewWebInterface(host string, port int) WebInterface {
 }
 
 func (wi *WebInterface) Serve() {
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, rootHTML)
 	}))
 
-	http.Handle("/io/stream", websocket.Handler(func(ws *websocket.Conn) {
+	mux.Handle("/io/stream", websocket.Handler(func(ws *websocket.Conn) {
 		recv := make(chan []byte, 100)
 		msgChansMutex.Lock()
 		*wi.msgChans = append((*wi.msgChans), recv)
@@ -115,7 +116,7 @@ func (wi *WebInterface) Serve() {
 
 	}))
 
-	log.Printf("Starting web server on http://%s:%d\n", wi.Host, wi.Port)
+	fmt.Printf("web logger: starting web server on http://%s:%d\n", wi.Host, wi.Port)
 
-	http.ListenAndServe(fmt.Sprintf("%s:%d", wi.Host, wi.Port), nil)
+	http.ListenAndServe(fmt.Sprintf("%s:%d", wi.Host, wi.Port), mux)
 }
