@@ -40,6 +40,10 @@
                 color: rgb(100, 100, 240);
             }
 
+            .padded-text {
+                padding-left: 11ch;
+            }
+
             #freezeBtn {
                 background-color: var(--bg-color);
                 border-color: var(--prim-color);
@@ -81,6 +85,7 @@
                         p.classList.add("control-msg");
                         p.textContent = content;
                     } else if (date === 0) {
+                        p.classList.add("padded-text");
                         p.textContent = content;
                     } else {
                         p.textContent = `[${date.toLocaleTimeString()}] ${content}`;
