@@ -92,6 +92,14 @@
                 messageQueue = [];
             }
 
+            ws.onopen = (ev) => {
+                console.log("Connected to WebSocket");
+            };
+
+            ws.onclose = (ev) => {
+                console.log("Connection to WebSocket closed");
+            };
+
             ws.onmessage = (ev) => {
                 const lines = ev.data.split("\n").reverse();
                 messageQueue.push([new Date(), lines[lines.length - 1]]);

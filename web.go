@@ -18,6 +18,7 @@ var msgChansMutex *sync.Mutex = new(sync.Mutex)
 func removeFromArr[T comparable](arr *[]T, value T) {
 	passedObj := false
 	for i := 0; i < len(*arr)-1; i++ {
+		fmt.Println(arr)
 		if (*arr)[i] == value {
 			passedObj = true
 		}
@@ -27,7 +28,9 @@ func removeFromArr[T comparable](arr *[]T, value T) {
 		}
 	}
 
-	*arr = (*arr)[:len(*arr)-1]
+	if passedObj || (len(*arr) > 0 && (*arr)[len(*arr)-1] == value) {
+		*arr = (*arr)[:len(*arr)-1]
+	}
 }
 
 type WebInterfaceWriter struct {
@@ -45,7 +48,7 @@ func (w WebInterfaceWriter) Write(p []byte) (n int, err error) {
 
 	data := append([]byte(nil), p...)
 
-	var queuedRemoval [](chan []byte)
+	queuedRemoval := [](chan []byte){}
 
 	for _, c := range *w.msgChans {
 		select {
@@ -58,6 +61,7 @@ func (w WebInterfaceWriter) Write(p []byte) (n int, err error) {
 
 	for _, c := range queuedRemoval {
 		removeFromArr(w.msgChans, c)
+		close(c)
 	}
 	msgChansMutex.Unlock()
 
@@ -90,26 +94,27 @@ func (wi *WebInterface) Serve() {
 	}))
 
 	mux.Handle("/io/stream", websocket.Handler(func(ws *websocket.Conn) {
+
 		recv := make(chan []byte, 100)
 		msgChansMutex.Lock()
 		*wi.msgChans = append((*wi.msgChans), recv)
 		msgChansMutex.Unlock()
 
-		for {
-			message, ok := <-recv
+		// call this cleanup function on handler-exit
+		defer func() {
+			msgChansMutex.Lock()
+			removeFromArr(wi.msgChans, recv)
+			msgChansMutex.Unlock()
 
-			if ok {
-				if err := websocket.Message.Send(ws, string(message)); err != nil {
-					// connection was most likely closed
-					msgChansMutex.Lock()
-					removeFromArr(wi.msgChans, recv)
-					msgChansMutex.Unlock()
-					return
-				}
-			} else {
-				msgChansMutex.Lock()
-				removeFromArr(wi.msgChans, recv)
-				msgChansMutex.Unlock()
+			ws.Close()
+		}()
+
+		for {
+			byteMessage, ok := <-recv
+			msg := string(byteMessage)
+			err := websocket.Message.Send(ws, msg)
+
+			if err != nil || !ok {
 				return
 			}
 		}
