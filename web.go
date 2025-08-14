@@ -18,7 +18,6 @@ var msgChansMutex *sync.Mutex = new(sync.Mutex)
 func removeFromArr[T comparable](arr *[]T, value T) {
 	passedObj := false
 	for i := 0; i < len(*arr)-1; i++ {
-		fmt.Println(arr)
 		if (*arr)[i] == value {
 			passedObj = true
 		}
