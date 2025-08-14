@@ -6,105 +6,117 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
-	"github.com/gorilla/websocket"
-
-	"github.com/Tch1b0/go-weblogger/pkg/chans"
+	"golang.org/x/net/websocket"
 )
 
 //go:embed index.html
 var rootHTML string
 
-type WebInterfaceWriter struct {
-	msgChan *chans.SuperChannel[[]byte]
+var msgChansMutex *sync.Mutex = new(sync.Mutex)
+
+func RemoveFromArr[T comparable](arr *[]T, value T) {
+	passedObj := false
+	for i := 0; i < len(*arr)-1; i++ {
+		if (*arr)[i] == value {
+			passedObj = true
+		}
+
+		if passedObj {
+			(*arr)[i] = (*arr)[i+1]
+		}
+	}
+
+	*arr = (*arr)[:len(*arr)-1]
 }
 
-func NewWebInterfaceWriter(msgChan *chans.SuperChannel[[]byte]) WebInterfaceWriter {
+type WebInterfaceWriter struct {
+	msgChans *[](chan []byte)
+}
+
+func NewWebInterfaceWriter(msgChans *[](chan []byte)) WebInterfaceWriter {
 	return WebInterfaceWriter{
-		msgChan: msgChan,
+		msgChans: msgChans,
 	}
 }
 
 func (w WebInterfaceWriter) Write(p []byte) (n int, err error) {
-	w.msgChan.Sender <- p
+	msgChansMutex.Lock()
+
+	data := append([]byte(nil), p...)
+
+	var queuedRemoval [](chan []byte)
+
+	for _, c := range *w.msgChans {
+		select {
+		case c <- data:
+			// successfully wrote to c
+		default:
+			queuedRemoval = append(queuedRemoval, c)
+		}
+	}
+
+	for _, c := range queuedRemoval {
+		RemoveFromArr(w.msgChans, c)
+	}
+	msgChansMutex.Unlock()
 
 	return len(p), nil
 }
 
 type WebInterface struct {
-	Host    string
-	Port    int
-	msgChan *chans.SuperChannel[[]byte]
-	Writer  WebInterfaceWriter
+	Host     string
+	Port     int
+	msgChans *[](chan []byte)
+	Writer   WebInterfaceWriter
 }
 
 func NewWebInterface(host string, port int) WebInterface {
-	sc := chans.NewSuperChannel[[]byte]()
-	go sc.Start()
+	var msgChans [](chan []byte)
+
 	return WebInterface{
-		Host:    host,
-		Port:    port,
-		msgChan: sc,
-		Writer:  WebInterfaceWriter{msgChan: sc},
+		Host:     host,
+		Port:     port,
+		msgChans: &msgChans,
+		Writer:   WebInterfaceWriter{msgChans: &msgChans},
 	}
 }
 
 func (wi *WebInterface) Start() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, rootHTML)
-	})
+	}))
 
-	// Add websocket functionality
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024 * 100,
-		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true // Allow all origins for development
-		},
-	}
+	http.Handle("/io/stream", websocket.Handler(func(ws *websocket.Conn) {
+		recv := make(chan []byte, 100)
+		fmt.Println("Adding to Receivers: ", recv)
+		msgChansMutex.Lock()
+		*wi.msgChans = append((*wi.msgChans), recv)
+		msgChansMutex.Unlock()
 
-	mux.HandleFunc("/io/stream", func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Println("Error upgrading to websocket:", err)
-			return
-		}
-		defer conn.Close()
-
-		recv := chans.NewDebouncedChan[[]byte]()
-		go recv.Debounce()
-		wi.msgChan.AddReceiver(recv.Sender)
-
-		// Keep the connection alive without transferring data
 		for {
-			messages, ok := <-recv.Receiver
+			message, ok := <-recv
 
 			if ok {
-				for i := range messages {
-					msg := messages[len(messages)-i-1]
-					if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-						fmt.Println("Couldnt send message")
-						// connection was most likely closed
-						wi.msgChan.RemoveReceiver(recv.Sender)
-						return
-					}
+				if err := websocket.Message.Send(ws, string(message)); err != nil {
+					// connection was most likely closed
+					msgChansMutex.Lock()
+					RemoveFromArr(wi.msgChans, recv)
+					msgChansMutex.Unlock()
+					return
 				}
 			} else {
-				wi.msgChan.RemoveReceiver(recv.Sender)
+				msgChansMutex.Lock()
+				RemoveFromArr(wi.msgChans, recv)
+				msgChansMutex.Unlock()
 				return
 			}
 		}
 
-	})
-
-	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%d", wi.Host, wi.Port),
-		Handler: mux,
-	}
+	}))
 
 	log.Printf("Starting web server on http://%s:%d\n", wi.Host, wi.Port)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatal("Server error:", err)
-	}
+
+	http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", wi.Port), nil)
 }

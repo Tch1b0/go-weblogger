@@ -17,13 +17,19 @@
             }
 
             .content-container {
-                max-height: 90vh;
-                overflow-y: scroll;
+                height: 90vh;
             }
 
             #content {
+                overflow-y: scroll;
+                height: 90vh;
                 display: flex;
-                flex-direction: column-reverse;
+                flex-direction: column;
+            }
+
+            #hiddenMessageCount {
+                margin: 0;
+                margin-top: 1pt;
             }
 
             .msg {
@@ -44,11 +50,12 @@
     </head>
     <body>
         <div class="content-container">
+            <div id="content"></div>
+            <br />
             <div class="controls">
                 <button onclick="toggleFreeze()" id="freezeBtn">Freeze</button>
                 <p id="hiddenMessageCount"></p>
             </div>
-            <div id="content"></div>
         </div>
         <script>
             let messageQueue = [];
@@ -64,8 +71,13 @@
                 document.getElementById("hiddenMessageCount");
 
             ws.onmessage = (ev) => {
-                console.log(ev);
-                messageQueue.push([new Date(), ev.data]);
+                const lines = ev.data.split("\n").reverse();
+                messageQueue.push([new Date(), lines[lines.length - 1]]);
+                lines.pop();
+                for (const line of lines) {
+                    messageQueue.push([0, line]);
+                }
+
                 if (frozen) {
                     messagesSinceFrozen++;
                     hiddenMessageCountEl.innerText = `Queued messages: ${messagesSinceFrozen}`;
@@ -80,12 +92,15 @@
                     // check if its a control message (e.g. freeze status)
                     if (date === -1) {
                         p.classList.add("control-msg");
-                        p.innerText = content;
+                        p.textContent = content;
+                    } else if (date === 0) {
+                        p.textContent = content;
                     } else {
-                        p.innerText = `[${date.toLocaleTimeString()}] ${content}`;
+                        p.textContent = `[${date.toLocaleTimeString()}] ${content}`;
                     }
 
                     contentEl.appendChild(p);
+                    p.scrollIntoView();
                 }
                 messageQueue = [];
             };
@@ -94,7 +109,7 @@
                 frozen = !frozen;
                 if (frozen) {
                     FreezeBtn.innerText = "Unfreeze";
-                    lines.push([-1, "--- UNFREEZE ---"]);
+                    messageQueue.push([-1, "--- UNFREEZE ---"]);
                     messagesSinceFrozen = 0;
                 } else {
                     FreezeBtn.innerText = "Freeze";
