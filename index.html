@@ -83,7 +83,7 @@
                     // check if its a control message (e.g. freeze status)
                     if (date === -1) {
                         p.classList.add("control-msg");
-                        p.textContent = content;
+                        p.textContent = `--- ${content} ---`;
                     } else if (date === 0) {
                         p.classList.add("padded-text");
                         p.textContent = content;
@@ -99,10 +99,13 @@
 
             ws.onopen = (ev) => {
                 console.log("Connected to WebSocket");
+                messageQueue.push([-1, "LOGGER CONNECTION ESTABLISHED"]);
             };
 
             ws.onclose = (ev) => {
                 console.log("Connection to WebSocket closed");
+                messageQueue.push([-1, "LOGGER CONNECTION CLOSED"]);
+                renderMessages();
             };
 
             ws.onmessage = (ev) => {
@@ -126,7 +129,7 @@
                 frozen = !frozen;
                 if (frozen) {
                     FreezeBtn.innerText = "Unfreeze";
-                    messageQueue.push([-1, "--- UNFREEZE ---"]);
+                    messageQueue.push([-1, "UNFREEZE"]);
                     messagesSinceFrozen = 0;
                 } else {
                     FreezeBtn.innerText = "Freeze";
